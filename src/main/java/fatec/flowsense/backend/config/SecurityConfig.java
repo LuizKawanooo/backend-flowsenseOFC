@@ -5,14 +5,19 @@ import java.util.Arrays;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+
 import org.springframework.security.web.SecurityFilterChain;
+
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
+
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
@@ -32,20 +37,38 @@ public class SecurityConfig {
             )
 
             .authorizeHttpRequests(authorize -> authorize
+            		
+            	.requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
 
+
+        		.requestMatchers(HttpMethod.POST, "/push-token").authenticated()
+        		.requestMatchers("/alertas/vazamento/**").authenticated()
+        		.requestMatchers(HttpMethod.POST, "/push-teste").authenticated()
+            	
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                .requestMatchers(HttpMethod.POST, "/login").permitAll()
                 .requestMatchers(HttpMethod.POST, "/users").permitAll()
 
-                .requestMatchers(HttpMethod.POST, "/login").permitAll()
-
+                .requestMatchers("/auth/**").permitAll()
+                .requestMatchers("/api/password/**").permitAll()
                 .requestMatchers("/error").permitAll()
 
-                .requestMatchers(HttpMethod.PUT, "/users/**").authenticated()
+                // ESP32 envia fluxo sem login, mas com X-Device-Token
+                .requestMatchers(HttpMethod.POST, "/sensores/fluxo").permitAll()
 
-                .requestMatchers(HttpMethod.POST, "/logout").authenticated()
+                // ESP32 consulta reset remoto sem login, mas com X-Device-Token
+                .requestMatchers(HttpMethod.GET, "/devices/comando").permitAll()
+                .requestMatchers(HttpMethod.POST, "/devices/reset-confirmado").permitAll()
+
+                // App precisa estar logado
+                .requestMatchers(HttpMethod.GET, "/sensores/**").authenticated()
+                .requestMatchers(HttpMethod.POST, "/devices/registrar").authenticated()
+                .requestMatchers(HttpMethod.GET, "/devices/meus").authenticated()
+                .requestMatchers(HttpMethod.DELETE, "/devices/**").authenticated()
+                .requestMatchers("/consumo/**").authenticated()
+                .requestMatchers(HttpMethod.POST, "/devices/registrar").authenticated()
                 
-                .requestMatchers("/auth/**", "/api/password/**").permitAll()
 
                 .anyRequest().authenticated()
             )
@@ -68,12 +91,24 @@ public class SecurityConfig {
             Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS")
         );
 
-        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setAllowedHeaders(Arrays.asList(
+            "Authorization",
+            "Content-Type",
+            "ngrok-skip-browser-warning",
+            "X-Device-Token"
+        ));
 
-        configuration.setAllowCredentials(true);
+        configuration.setExposedHeaders(Arrays.asList(
+            "Authorization",
+            "Content-Type"
+        ));
+
+        configuration.setAllowCredentials(false);
+
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source =
-                new UrlBasedCorsConfigurationSource();
+            new UrlBasedCorsConfigurationSource();
 
         source.registerCorsConfiguration("/**", configuration);
 
